@@ -31,13 +31,11 @@ void Writer::close()
 
 uint64_t Writer::available_capacity() const
 {
-  // Your code here.
   return capacity_-buffer_.size();
 }
 
 uint64_t Writer::bytes_pushed() const
 {
-  // Your code here.
   return bytes_pushed_;
 }
 
