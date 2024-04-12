@@ -48,4 +48,6 @@ private:
   std::vector<char> buffer;
   std::vector<bool> valid_mask;
   size_t unassembled_idx {};
+  uint64_t total_bytes {};
+  bool total_bytes_mask {};
 };

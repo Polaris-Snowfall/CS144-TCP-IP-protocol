@@ -5,10 +5,25 @@ using namespace std;
 void Reassembler::insert( uint64_t first_index, string data, bool is_last_substring )
 {
   //重组数据
-  if(first_index>=unassembled_idx && first_index-unassembled_idx<capacity)
+  //data是否有在当前buffer区域内的部分
+  if(first_index+data.size()>=unassembled_idx && first_index<unassembled_idx+capacity)
   {
+    //截断unassembled_idx之前的部分
+    if(first_index < unassembled_idx)
+    {
+      data = data.substr(unassembled_idx-first_index);
+      first_index = unassembled_idx;
+    }
+
+    //保存最后一个字节的位置
+    if(is_last_substring)
+    {
+      total_bytes_mask = true;
+      total_bytes = first_index+data.size();
+    }
     auto psize = min(data.size(),
     unassembled_idx+capacity-first_index);
+
 
     auto start = std::next(buffer.begin(),first_index-unassembled_idx);
     std::copy_n(data.begin(),psize,start);
@@ -25,6 +40,7 @@ void Reassembler::insert( uint64_t first_index, string data, bool is_last_substr
   if(mask_iter != valid_mask.begin())
   {
     auto output_end = std::next(buffer.begin(),(mask_iter-valid_mask.begin()));
+
     writer_ref.push(std::string(buffer.begin(),output_end));
     unassembled_idx = writer_ref.bytes_pushed();
 
@@ -34,8 +50,9 @@ void Reassembler::insert( uint64_t first_index, string data, bool is_last_substr
     std::fill(invalid_iter,valid_mask.end(),false);
   }
 
-  if(is_last_substring)
-    writer_ref.close();
+  if(total_bytes_mask&&writer_ref.bytes_pushed() == total_bytes)
+      writer_ref.close();
+
 }
 
 uint64_t Reassembler::bytes_pending() const
