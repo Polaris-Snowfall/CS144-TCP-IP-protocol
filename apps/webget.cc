@@ -10,7 +10,21 @@ using namespace std;
 void get_URL( const string& host, const string& path )
 {
   cerr << "Function called: get_URL(" << host << ", " << path << ")\n";
-  cerr << "Warning: get_URL() has not been implemented yet.\n";
+  TCPSocket tsocket;
+  string read_buf;
+  tsocket.connect( Address { host, "http" } );
+
+  tsocket.write( "GET " + path + " HTTP/1.1\r\n" );
+  tsocket.write( "Host: " + host + "\r\n" );
+  tsocket.write( "Connection: close\r\n" );
+  tsocket.write( "\r\n" );
+
+  while ( !tsocket.eof() ) {
+    tsocket.read( read_buf );
+    cout << read_buf;
+  }
+
+  tsocket.close();
 }
 
 int main( int argc, char* argv[] )
