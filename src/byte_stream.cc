@@ -12,15 +12,22 @@ bool Writer::is_closed() const
 
 void Writer::push( string data )
 {
-  for(const auto ch : data)
+  size_t ilen = min(data.size(),available_capacity());
+  if(ilen)
   {
-    if(available_capacity())
+    data.resize(ilen);
+
+    buffer_.push(data);
+    bytes_pushed_ += ilen;
+    size_ += ilen;
+
+    if(buffer_.size() == 1)
     {
-      buffer_.push_back(ch);
-      bytes_pushed_++;
+      view_buf_ = std::string(buffer_.front());
     }
+
   }
-  tmp_buf_ = string(buffer_.begin(),buffer_.end());
+
   return;
 }
 
@@ -31,7 +38,7 @@ void Writer::close()
 
 uint64_t Writer::available_capacity() const
 {
-  return capacity_-buffer_.size();
+  return capacity_-size_;
 }
 
 uint64_t Writer::bytes_pushed() const
@@ -51,20 +58,35 @@ uint64_t Reader::bytes_popped() const
 
 string_view Reader::peek() const
 {
-  return string_view(tmp_buf_);
+  return view_buf_;
 }
 
 void Reader::pop( uint64_t len )
 {
-  while ((buffer_.size()&&len--))
+  size_t rlen = min(len,size_);
+  size_t rlen_remaind = rlen;
+  if(rlen)
   {
-    buffer_.pop_front();
-    bytes_popped_++;
+    while(!buffer_.empty() && rlen_remaind >= buffer_.front().size())
+    {
+      rlen_remaind -= buffer_.front().size();
+      buffer_.pop();
+    }
+
+    bytes_popped_ += rlen;
+    size_ -= rlen;
+
+    if(!buffer_.empty())
+    {
+      buffer_.front() = buffer_.front().substr(rlen_remaind);
+      view_buf_ = std::string(buffer_.front());
+    }
+    else
+      view_buf_ = std::string();
   }
-  tmp_buf_ = string(buffer_.begin(),buffer_.end());
 }
 
 uint64_t Reader::bytes_buffered() const
 {
-  return buffer_.size();
+  return size_;
 }
