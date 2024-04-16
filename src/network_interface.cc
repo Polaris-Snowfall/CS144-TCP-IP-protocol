@@ -1,4 +1,5 @@
 #include <iostream>
+#include <ranges>
 
 #include "arp_message.hh"
 #include "exception.hh"
@@ -27,21 +28,122 @@ NetworkInterface::NetworkInterface( string_view name,
 //! can be converted to a uint32_t (raw 32-bit IP address) by using the Address::ipv4_numeric() method.
 void NetworkInterface::send_datagram( const InternetDatagram& dgram, const Address& next_hop )
 {
-  // Your code here.
-  (void)dgram;
-  (void)next_hop;
+  EthernetFrame ef {};
+  uint32_t target_ip = next_hop.ipv4_numeric();
+
+
+
+  auto iter = ARP_table.find(target_ip);
+  if(iter != ARP_table.end())
+  {
+    ef.header.src = ethernet_address_;
+    ef.header.type = EthernetHeader::TYPE_IPv4;
+    ef.header.dst = (*iter).second.second;
+    ef.payload = move(serialize(dgram));
+
+    transmit(ef);
+  }
+  else
+  {
+    auto iter2 = ips_waiting.find(target_ip);
+    if(iter2 != ips_waiting.end() && cur_ms - (*iter2).second <= 5000)
+      return;
+    
+    ARPMessage msg {};
+    msg.opcode = ARPMessage::OPCODE_REQUEST;
+    msg.sender_ip_address = ip_address_.ipv4_numeric();
+    msg.sender_ethernet_address = ethernet_address_;
+    msg.target_ip_address = target_ip;
+
+    ef.header.src = ethernet_address_;
+    ef.header.type =EthernetHeader::TYPE_ARP;
+    ef.header.dst = ETHERNET_BROADCAST;
+    ef.payload = move(serialize(msg));
+
+    transmit(ef);
+
+    ips_waiting.insert_or_assign(target_ip,cur_ms);
+    dgrams_waiting.emplace(target_ip,dgram);
+
+  }
+
 }
 
 //! \param[in] frame the incoming Ethernet frame
 void NetworkInterface::recv_frame( const EthernetFrame& frame )
 {
-  // Your code here.
-  (void)frame;
+  if(frame.header.dst != ethernet_address_ && frame.header.dst != ETHERNET_BROADCAST)
+    return;
+
+  switch (frame.header.type)
+  {
+    case EthernetHeader::TYPE_IPv4 :
+    {
+      InternetDatagram ip_dgram;
+      if(!parse(ip_dgram,frame.payload))
+        return;
+      datagrams_received_.emplace(move(ip_dgram));
+    }break;
+
+    case EthernetHeader::TYPE_ARP :
+    {
+      ARPMessage msg;
+      if(!parse(msg,frame.payload))
+        return;
+      
+      ARP_table.insert_or_assign(msg.sender_ip_address,make_pair(cur_ms,msg.sender_ethernet_address));
+      ips_waiting.erase(msg.sender_ip_address);
+
+      EthernetFrame ef {};
+      ef.header.src = ethernet_address_;
+      ef.header.dst = msg.sender_ethernet_address;
+      ef.header.type = EthernetHeader::TYPE_IPv4;
+
+      auto [head,tail] = dgrams_waiting.equal_range(msg.sender_ip_address);
+      for_each(head,tail,[this,&ef](auto& e) mutable -> void{
+        ef.payload = move(serialize(e.second));
+        transmit(ef);
+      });
+
+      if(head != dgrams_waiting.end())
+        dgrams_waiting.erase(msg.sender_ip_address);
+
+      if(msg.opcode == ARPMessage::OPCODE_REQUEST && msg.target_ip_address == ip_address_.ipv4_numeric())
+      {
+        ARPMessage arp_reply {};
+        arp_reply.opcode = ARPMessage::OPCODE_REPLY;
+        arp_reply.sender_ethernet_address = ethernet_address_;
+        arp_reply.sender_ip_address = ip_address_.ipv4_numeric();
+        arp_reply.target_ethernet_address = msg.sender_ethernet_address;
+        arp_reply.target_ip_address = msg.sender_ip_address;
+        
+        EthernetFrame reply {};
+        reply.header.src = ethernet_address_;
+        reply.header.dst = msg.sender_ethernet_address;
+        reply.header.type = EthernetHeader::TYPE_ARP;
+        reply.payload = move(serialize(arp_reply));
+
+        transmit(reply);
+      }
+        
+    }break;
+
+    default:
+      return;
+  }
+
 }
 
 //! \param[in] ms_since_last_tick the number of milliseconds since the last call to this method
 void NetworkInterface::tick( const size_t ms_since_last_tick )
 {
-  // Your code here.
-  (void)ms_since_last_tick;
+  cur_ms += ms_since_last_tick;
+  for(auto iter = ARP_table.begin();iter!=ARP_table.end();)
+  {
+    if(cur_ms - (*iter).second.first > 30000)
+      iter = ARP_table.erase(iter);
+    else
+      iter++;
+  }
+
 }

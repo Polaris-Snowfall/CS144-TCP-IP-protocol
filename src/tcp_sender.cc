@@ -40,7 +40,7 @@ void TCPSender::push( const TransmitFunction& transmit )
     if(reader().has_error())
       msg.RST = true;
 
-    rt_segments.insert( {Wrap32::wrap(reader().bytes_popped()+syned+msg.SYN+msg.FIN,isn_), {cur_ms+RTO_ms,msg} } );
+    rt_segments.emplace( Wrap32::wrap(reader().bytes_popped()+syned+msg.SYN+msg.FIN,isn_), make_pair(cur_ms+RTO_ms,msg)  );
     transmit(msg);
 
     syned = true;
@@ -66,15 +66,15 @@ TCPSenderMessage TCPSender::make_empty_message() const
 
 void TCPSender::receive( const TCPReceiverMessage& msg )
 {
-  bool newdata_flag = (msg.ackno.has_value() && msg.ackno >= (*rt_segments.begin()).first);
+  bool newdata_flag = (msg.ackno.has_value() && !rt_segments.empty() && msg.ackno >= (*rt_segments.begin()).first && msg.ackno <= (*rt_segments.rbegin()).first);
   if(msg.ackno.has_value())
   {
-    if(!rt_segments.empty() && msg.ackno <= (*rt_segments.rbegin()).first)
+    if(!rt_segments.empty() && msg.ackno <= (*rt_segments.rbegin()).first && msg.ackno >= (*rt_segments.begin()).first)
     {
-      for(auto iter = rt_segments.begin();iter!=rt_segments.upper_bound(*msg.ackno);++iter)
+      for(auto iter = rt_segments.begin();iter!=rt_segments.upper_bound(*msg.ackno);)
       {
         in_flight_cnt -= (*iter).second.second.sequence_length();
-        rt_segments.erase(iter);
+        iter = rt_segments.erase(iter);
       }
     }
   }

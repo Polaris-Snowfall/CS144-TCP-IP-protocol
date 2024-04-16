@@ -50,12 +50,12 @@ private:
   Wrap32 isn_;
   uint64_t initial_RTO_ms_;
 
-  std::map<Wrap32,std::pair<uint64_t,TCPSenderMessage> > rt_segments;
+  std::map<Wrap32,std::pair<uint64_t,TCPSenderMessage> > rt_segments{};
   uint64_t RTO_ms;
-  uint64_t cur_ms;
+  uint64_t cur_ms{};
   std::optional<uint64_t> window_size {};
   uint64_t retransmissions_cnt {};
-  uint64_t in_flight_cnt;
+  uint64_t in_flight_cnt{};
   bool syned {};
   bool fined {};
   bool zero_window {};
