@@ -2,6 +2,7 @@
 
 #include <memory>
 #include <optional>
+#include <map>
 
 #include "exception.hh"
 #include "network_interface.hh"
@@ -35,4 +36,22 @@ public:
 private:
   // The router's collection of network interfaces
   std::vector<std::shared_ptr<NetworkInterface>> _interfaces {};
+
+  struct prefix_info
+  {
+    prefix_info(const uint8_t prefix_lenth,const uint32_t route_prefix) :
+    mask(~(UINT32_MAX >> (prefix_lenth))),prefix(route_prefix) {}
+
+    auto operator>(const prefix_info& other) 
+    {
+      return mask != other.mask ? (mask > other.mask)
+                 : (prefix > other.prefix);
+    }
+    uint32_t mask;
+    uint32_t prefix;
+  };
+  
+  using RouterT = std::multimap<prefix_info,std::pair<size_t,optional<Address> > >;
+
+  RouterT RouterTable {};
 };

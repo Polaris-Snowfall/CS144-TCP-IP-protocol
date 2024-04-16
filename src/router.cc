@@ -21,10 +21,15 @@ void Router::add_route( const uint32_t route_prefix,
        << " on interface " << interface_num << "\n";
 
   // Your code here.
+  RouterTable.emplace(prefix_info(prefix_length,route_prefix),
+                                make_pair(interface_num,next_hop));
 }
 
 // Go through all the interfaces, and route every incoming datagram to its proper outgoing interface.
 void Router::route()
 {
-  // Your code here.
+  for(auto pNetInterface : _interfaces)
+  {
+    
+  }
 }
