@@ -42,7 +42,7 @@ private:
     prefix_info(const uint8_t prefix_lenth,const uint32_t route_prefix) :
     mask(~(UINT32_MAX >> (prefix_lenth))),prefix(route_prefix) {}
 
-    auto operator>(const prefix_info& other) 
+    auto operator>(const prefix_info& other) const
     {
       return mask != other.mask ? (mask > other.mask)
                  : (prefix > other.prefix);
@@ -51,7 +51,7 @@ private:
     uint32_t prefix;
   };
   
-  using RouterT = std::multimap<prefix_info,std::pair<size_t,optional<Address> > >;
+  using RouterT = std::map<prefix_info,std::pair<size_t,std::optional<Address> >,std::greater<prefix_info>>;
 
   RouterT RouterTable {};
 };

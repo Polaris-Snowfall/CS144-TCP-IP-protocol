@@ -60,10 +60,11 @@ void NetworkInterface::send_datagram( const InternetDatagram& dgram, const Addre
     ef.header.dst = ETHERNET_BROADCAST;
     ef.payload = move(serialize(msg));
 
-    transmit(ef);
-
     ips_waiting.insert_or_assign(target_ip,cur_ms);
     dgrams_waiting.emplace(target_ip,dgram);
+    transmit(ef);
+
+
 
   }
 

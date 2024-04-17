@@ -30,6 +30,30 @@ void Router::route()
 {
   for(auto pNetInterface : _interfaces)
   {
-    
+    auto& incoming_dgrams = pNetInterface->datagrams_received();
+    while(!incoming_dgrams.empty())
+    {
+      auto& dgram = incoming_dgrams.front();
+      if(dgram.header.ttl <= 1)
+      {
+        incoming_dgrams.pop();
+        continue;
+      }
+      
+      for(auto& RTE : RouterTable)
+      {
+        if((dgram.header.dst & RTE.first.mask) == RTE.first.prefix)
+        {
+          --dgram.header.ttl;
+          dgram.header.compute_checksum();
+
+          const auto& [interface_num,next_hop] = RTE.second;
+          _interfaces[interface_num]->send_datagram(dgram,(next_hop.has_value() ? *next_hop : Address::from_ipv4_numeric(dgram.header.dst)));
+
+          incoming_dgrams.pop();
+          break;
+        }
+      }
+    }
   }
 }
